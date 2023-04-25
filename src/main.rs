@@ -201,26 +201,6 @@ fn main() {
         meteorSpawn: 1.0,
     };
 
-    game.meteors.push(Ball {
-        position: Vector2::new(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0),
-        speed: 0.0,
-        rotation: 45.0,
-        tint: Color::GREEN,
-        texture: rl
-            .load_texture_from_image(&thread, &game.meteorTexture)
-            .unwrap(),
-    });
-
-    game.meteors.push(Ball {
-        position: Vector2::new(150.0, 150.0),
-        speed: 0.0,
-        rotation: 20.0,
-        tint: Color::GREEN,
-        texture: rl
-            .load_texture_from_image(&thread, &game.meteorTexture)
-            .unwrap(),
-    });
-
     // Main loop
     while !rl.window_should_close() {
         if !game.gameOver {
@@ -241,25 +221,27 @@ fn main() {
 fn spawnAsteroids(rl: &mut RaylibHandle, game: &mut Game, thread: &RaylibThread) {
     // Check if meteor should spawn
     if game.meteorSpawn <= 0.0 {
-        // Generate direction of spawn from player
-        let direction: i32 = game.rand.gen_range(0..361);
+        for _ in 0..(((game.timer + 10.0) / 10.0) as i32) {
+            // Generate direction of spawn from player
+            let direction: i32 = game.rand.gen_range(0..361);
 
-        // Generate spawn position of meteor
-        let pos = Vector2::new(
-            game.player.position.x + 400.0 * (direction as f32 * PI / 180.0).cos(),
-            game.player.position.y + 400.0 * (direction as f32 * PI / 180.0).sin(),
-        );
+            // Generate spawn position of meteor
+            let pos = Vector2::new(
+                game.player.position.x + 400.0 * (direction as f32 * PI / 180.0).cos(),
+                game.player.position.y + 400.0 * (direction as f32 * PI / 180.0).sin(),
+            );
 
-        // Instantiate meteor
-        game.meteors.push(Ball {
-            position: pos,
-            speed: game.rand.gen_range(2..5) as f32,
-            rotation: 360.0 - direction as f32 + game.rand.gen_range(-20..20) as f32,
-            tint: Color::BROWN,
-            texture: rl
-                .load_texture_from_image(&thread, &game.meteorTexture)
-                .unwrap(),
-        });
+            // Instantiate meteor
+            game.meteors.push(Ball {
+                position: pos,
+                speed: game.rand.gen_range(2..5) as f32,
+                rotation: 360.0 - direction as f32 + game.rand.gen_range(-20..20) as f32,
+                tint: Color::BROWN,
+                texture: rl
+                    .load_texture_from_image(&thread, &game.meteorTexture)
+                    .unwrap(),
+            });
+        }
 
         // Reset meteor spawn
         game.meteorSpawn = 0.5;
@@ -322,5 +304,11 @@ fn drawGameOver(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
     d.draw_text("L, you died nerd", 50, 50, 60, Color::WHITE);
     d.draw_text("You survived for: ", 50, 130, 50, Color::WHITE);
     // Draw timer
-    d.draw_text(&((game.timer as i32).to_string() + " seconds"), 50, 210, 50, Color::WHITE);
+    d.draw_text(
+        &((game.timer as i32).to_string() + " seconds"),
+        50,
+        210,
+        50,
+        Color::WHITE,
+    );
 }

@@ -223,14 +223,18 @@ fn main() {
 
     // Main loop
     while !rl.window_should_close() {
-        // Spawn asteroids
-        spawnAsteroids(&mut rl, &mut game, &thread);
+        if !game.gameOver {
+            // Spawn asteroids
+            spawnAsteroids(&mut rl, &mut game, &thread);
 
-        // Handle movement and check for collisions
-        mainLoop(&rl, &mut game);
+            // Handle movement and check for collisions
+            mainLoop(&rl, &mut game);
 
-        // Draw player view
-        drawGame(&mut rl, &game, &thread);
+            // Draw player view
+            drawGame(&mut rl, &game, &thread);
+        } else {
+            drawGameOver(&mut rl, &game, &thread);
+        }
     }
 }
 
@@ -242,8 +246,8 @@ fn spawnAsteroids(rl: &mut RaylibHandle, game: &mut Game, thread: &RaylibThread)
 
         // Generate spawn position of meteor
         let pos = Vector2::new(
-            game.player.position.x + 250.0 * (direction as f32 * PI / 180.0).cos(),
-            game.player.position.y + 250.0 * (direction as f32 * PI / 180.0).sin(),
+            game.player.position.x + 400.0 * (direction as f32 * PI / 180.0).cos(),
+            game.player.position.y + 400.0 * (direction as f32 * PI / 180.0).sin(),
         );
 
         // Instantiate meteor
@@ -258,7 +262,7 @@ fn spawnAsteroids(rl: &mut RaylibHandle, game: &mut Game, thread: &RaylibThread)
         });
 
         // Reset meteor spawn
-        game.meteorSpawn = 1.0;
+        game.meteorSpawn = 0.5;
     } else {
         unsafe { game.meteorSpawn = game.meteorSpawn - GetFrameTime() };
     }
@@ -281,7 +285,6 @@ fn mainLoop(rl: &RaylibHandle, game: &mut Game) {
             game.meteors[i].position,
             METEOR_HITBOX,
         ) {
-            game.meteors.remove(i);
             game.gameOver = true;
         }
     }
@@ -308,4 +311,16 @@ fn drawGame(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
 
     // Draw timer
     d.draw_text(&(game.timer as i32).to_string(), 10, 10, 40, Color::WHITE);
+}
+
+fn drawGameOver(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
+    // Draw background
+    let mut d = rl.begin_drawing(&thread);
+    d.clear_background(game.background);
+
+    // Draw Game Over message
+    d.draw_text("L, you died nerd", 50, 50, 60, Color::WHITE);
+    d.draw_text("You survived for: ", 50, 130, 50, Color::WHITE);
+    // Draw timer
+    d.draw_text(&((game.timer as i32).to_string() + " seconds"), 50, 210, 50, Color::WHITE);
 }

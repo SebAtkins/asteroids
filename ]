@@ -8,17 +8,6 @@ use raylib::prelude::*;
 
 const SCREEN_WIDTH: f32 = 640.0;
 const SCREEN_HEIGHT: f32 = 480.0;
-const PLAYER_HITBOX: f32 = 10.0;
-const METEOR_HITBOX: f32 = 20.0;
-
-struct Game {
-    player: Player,
-    meteors: Vec<Ball>,
-    gameOver: bool,
-    timer: f32,
-    background: Color,
-    camera: Camera2D,
-}
 
 struct Player {
     position: Vector2,
@@ -81,8 +70,6 @@ impl Player {
             self.rotation + 90.0,
             self.tint,
         );
-
-        d.draw_circle_v(pos, 10.0, Color::GREEN);
     }
 
     fn update(&mut self, rl: &RaylibHandle) {
@@ -149,13 +136,13 @@ impl Ball {
             self.rotation + 90.0,
             self.tint,
         );
-
-        d.draw_circle_v(pos, 20.0, Color::RED);
     }
 }
 
 fn main() {
     // Definitions
+    let backgd = Color::from_hex("15203b").unwrap();
+
     let (mut rl, thread) = raylib::init()
         .size(SCREEN_WIDTH as i32, SCREEN_HEIGHT as i32)
         .title("Space Game")
@@ -166,94 +153,60 @@ fn main() {
     let boost = Image::load_image("src/tex/PNG/default/effect_yellow.png").unwrap();
     let asteroid = Image::load_image("src/tex/PNG/default/meteor_detailedLarge.png").unwrap();
 
-    let mut game = Game {
-        player: Player {
-            position: Vector2::new(0.0, 0.0),
-            velocity: Vector2::new(0.0, 0.0),
-            speed: 0.05,
-            rotationSpeed: 2.0,
-            rotation: -90.0,
-            texture: rl.load_texture_from_image(&thread, &img).unwrap(),
-            tint: Color::WHITE,
-            maxSpeed: 2.0,
-            boostTex: rl.load_texture_from_image(&thread, &boost).unwrap(),
-            drawBoost: false,
-        },
-        meteors: Vec::new(),
-        gameOver: false,
-        timer: 0.0,
-        background: Color::from_hex("15203b").unwrap(),
-        camera: Camera2D {
-            offset: Vector2::new(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0),
-            rotation: 0.0,
-            target: Vector2::new(0.0, 0.0),
-            zoom: 1.0,
-        },
+    let mut timer: f32 = 0.0;
+
+    let mut player = Player {
+        position: Vector2::new(0.0, 0.0),
+        velocity: Vector2::new(0.0, 0.0),
+        speed: 0.05,
+        rotationSpeed: 2.0,
+        rotation: -90.0,
+        texture: rl.load_texture_from_image(&thread, &img).unwrap(),
+        tint: Color::WHITE,
+        maxSpeed: 2.0,
+        boostTex: rl.load_texture_from_image(&thread, &boost).unwrap(),
+        drawBoost: false,
     };
 
-    game.meteors.push(Ball {
+    let ball1 = Ball {
         position: Vector2::new(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0),
         speed: 20.0,
         rotation: 45.0,
         tint: Color::WHITE,
         texture: rl.load_texture_from_image(&thread, &asteroid).unwrap(),
-    });
-
-    game.meteors.push(Ball {
+    };
+    let ball2 = Ball {
         position: Vector2::new(150.0, 150.0),
         speed: 3.0,
         rotation: 20.0,
         tint: Color::BROWN,
         texture: rl.load_texture_from_image(&thread, &asteroid).unwrap(),
-    });
+    };
 
-    // Main loop
+    let mut camera = Camera2D {
+        offset: Vector2::new(SCREEN_WIDTH / 2.0, SCREEN_HEIGHT / 2.0),
+        rotation: 0.0,
+        target: Vector2::new(player.position.x, player.position.y),
+        zoom: 1.0,
+    };
+
     while !rl.window_should_close() {
-        // Handle movement and check for collisions
-        mainLoop(&rl, &mut game);
+        // Update player
+        player.update(&rl);
 
-        // Draw player view
-        drawGame(&mut rl, &game, &thread);
-    }
-}
+        // Update timer
+        unsafe { timer = timer + GetFrameTime() }
 
-fn mainLoop(rl: &RaylibHandle, game: &mut Game) {
-    // Update player
-    game.player.update(rl);
+        camera.target = player.position;
 
-    // Check for player meteor collisions
-    for i in 0..game.meteors.len() {
-        if check_collision_circles(
-            game.player.position,
-            PLAYER_HITBOX,
-            game.meteors[i].position,
-            METEOR_HITBOX,
-        ) {
-            game.meteors.remove(i);
-            game.gameOver = true;
-        }
-    }
-
-    // Update timer
-    unsafe { game.timer = game.timer + GetFrameTime() }
-
-    // Update camera position
-    game.camera.target = game.player.position;
-}
-
-fn drawGame(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
-        // Draw background
+        // Draw
         let mut d = rl.begin_drawing(&thread);
-        d.clear_background(game.background);
 
-        // Draw player
-        game.player.draw(&mut d, game.camera);
+        d.clear_background(backgd);
 
-        // Draw meteors
-        for x in &game.meteors {
-            x.draw(&mut d, game.camera);
-        }
-
-        // Draw timer
-        d.draw_text(&(game.timer as i32).to_string(), 10, 10, 40, Color::WHITE);
+        player.draw(&mut d, camera);
+        ball1.draw(&mut d, camera);
+        ball2.draw(&mut d, camera);
+        d.draw_text(&(timer as i32).to_string(), 10, 10, 40, Color::WHITE);
+    }
 }

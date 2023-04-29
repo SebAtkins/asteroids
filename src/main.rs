@@ -4,7 +4,9 @@ use std::f32::consts::PI;
 
 use rand::prelude::*;
 use raylib::consts::KeyboardKey::*;
-use raylib::ffi::{GetFrameTime, GetWorldToScreen2D};
+use raylib::ffi::{
+    CheckCollisionPointRec, GetFrameTime, GetMousePosition, GetWorldToScreen2D, IsMouseButtonDown,
+};
 use raylib::prelude::*;
 
 const SCREEN_WIDTH: f32 = 640.0;
@@ -16,12 +18,14 @@ struct Game {
     player: Player,
     meteors: Vec<Ball>,
     gameOver: bool,
+    mainMenu: bool,
     timer: f32,
     background: Color,
     camera: Camera2D,
     rand: ThreadRng,
     meteorTexture: Image,
     meteorSpawn: f32,
+    playButton: Texture2D,
 }
 
 struct Player {
@@ -169,25 +173,93 @@ fn main() {
         .vsync()
         .build();
 
+    let mut game = initGame(&mut rl, &thread);
+
+    // Main loop
+    while !rl.window_should_close() {
+        if game.mainMenu {
+            // Draw main menu
+            drawMainMenu(&mut rl, &game, &thread);
+
+            // Get mouse position
+            let mousePos = unsafe { GetMousePosition() };
+
+            // Check if play button is pressed
+            unsafe {
+                if CheckCollisionPointRec(mousePos, Rectangle::new(100.0, 310.0, 162.0, 90.0).into()) {
+                    if IsMouseButtonDown(0) {
+                        game.mainMenu = false;
+                    }
+                }
+            }
+
+            // Check if quit button is pressed
+            unsafe {
+                if CheckCollisionPointRec(mousePos, Rectangle::new(378.0, 310.0, 162.0, 90.0).into()) {
+                    if IsMouseButtonDown(0) {
+                        break;
+                    }
+                }
+            }
+        } else if !game.gameOver {
+            // Spawn asteroids
+            spawnAsteroids(&mut rl, &mut game, &thread);
+
+            // Handle movement and check for collisions
+            mainLoop(&rl, &mut game);
+
+            // Draw player view
+            drawGame(&mut rl, &game, &thread);
+        } else {
+            drawGameOver(&mut rl, &game, &thread);
+
+            // Get mouse position
+            let mousePos = unsafe { GetMousePosition() };
+
+            // Check if play button is pressed
+            unsafe {
+                if CheckCollisionPointRec(mousePos, Rectangle::new(100.0, 310.0, 162.0, 90.0).into()) {
+                    if IsMouseButtonDown(0) {
+                        game = initGame(&mut rl, &thread);
+                        game.mainMenu = false;
+                    }
+                }
+            }
+
+            // Check if quit button is pressed
+            unsafe {
+                if CheckCollisionPointRec(mousePos, Rectangle::new(378.0, 310.0, 162.0, 90.0).into()) {
+                    if IsMouseButtonDown(0) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn initGame(rl: &mut RaylibHandle, thread: &RaylibThread) -> Game {
     let img = Image::load_image("src/tex/PNG/default/ship_J.png").unwrap();
     let boost = Image::load_image("src/tex/PNG/default/effect_yellow.png").unwrap();
     let asteroid = Image::load_image("src/tex/PNG/default/meteor_detailedLarge.png").unwrap();
+    let play = Image::load_image("src/tex/PNG/default/buttons.png").unwrap();
 
-    let mut game = Game {
+    return Game {
         player: Player {
             position: Vector2::new(0.0, 0.0),
             velocity: Vector2::new(0.0, 0.0),
             speed: 0.05,
             rotationSpeed: 2.0,
-            rotation: -90.0,
+            rotation: 00.0,
             texture: rl.load_texture_from_image(&thread, &img).unwrap(),
             tint: Color::WHITE,
             maxSpeed: 2.0,
             boostTex: rl.load_texture_from_image(&thread, &boost).unwrap(),
-            drawBoost: false,
+            drawBoost: true,
         },
         meteors: Vec::new(),
         gameOver: false,
+        mainMenu: true,
         timer: 0.0,
         background: Color::from_hex("15203b").unwrap(),
         camera: Camera2D {
@@ -199,23 +271,8 @@ fn main() {
         rand: rand::thread_rng(),
         meteorTexture: asteroid,
         meteorSpawn: 1.0,
+        playButton: rl.load_texture_from_image(&thread, &play).unwrap(),
     };
-
-    // Main loop
-    while !rl.window_should_close() {
-        if !game.gameOver {
-            // Spawn asteroids
-            spawnAsteroids(&mut rl, &mut game, &thread);
-
-            // Handle movement and check for collisions
-            mainLoop(&rl, &mut game);
-
-            // Draw player view
-            drawGame(&mut rl, &game, &thread);
-        } else {
-            drawGameOver(&mut rl, &game, &thread);
-        }
-    }
 }
 
 fn spawnAsteroids(rl: &mut RaylibHandle, game: &mut Game, thread: &RaylibThread) {
@@ -260,13 +317,14 @@ fn mainLoop(rl: &RaylibHandle, game: &mut Game) {
     }
 
     // Check for player meteor collisions
-    for i in 0..game.meteors.len() {
+    for i in (0..game.meteors.len()).rev() {
         if check_collision_circles(
             game.player.position,
             PLAYER_HITBOX,
             game.meteors[i].position,
             METEOR_HITBOX,
         ) {
+            game.meteors.remove(i);
             game.gameOver = true;
         }
     }
@@ -311,4 +369,56 @@ fn drawGameOver(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
         50,
         Color::WHITE,
     );
+
+    // Draw play button
+    d.draw_texture_pro(
+        &game.playButton,
+        Rectangle::new(0.0, 0.0, 162.0, 90.0),
+        Rectangle::new(100.0, 310.0, 162.0, 90.0),
+        Vector2::new(0.0, 0.0),
+        0.0,
+        Color::WHITE,
+    );
+
+    // Draw quit button
+    d.draw_texture_pro(
+        &game.playButton,
+        Rectangle::new(0.0, 91.0, 162.0, 90.0),
+        Rectangle::new(378.0, 310.0, 162.0, 90.0),
+        Vector2::new(0.0, 0.0),
+        0.0,
+        Color::WHITE,
+    );
+}
+
+fn drawMainMenu(rl: &mut RaylibHandle, game: &Game, thread: &RaylibThread) {
+    // Draw background
+    let mut d = rl.begin_drawing(&thread);
+    d.clear_background(game.background);
+
+    // Draw Game name
+    d.draw_text("Asteroid Avoider", 50, 50, 60, Color::WHITE);
+
+    // Draw play button
+    d.draw_texture_pro(
+        &game.playButton,
+        Rectangle::new(0.0, 0.0, 162.0, 90.0),
+        Rectangle::new(100.0, 310.0, 162.0, 90.0),
+        Vector2::new(0.0, 0.0),
+        0.0,
+        Color::WHITE,
+    );
+
+    // Draw quit button
+    d.draw_texture_pro(
+        &game.playButton,
+        Rectangle::new(0.0, 91.0, 162.0, 90.0),
+        Rectangle::new(378.0, 310.0, 162.0, 90.0),
+        Vector2::new(0.0, 0.0),
+        0.0,
+        Color::WHITE,
+    );
+
+    // Draw spaceship
+    game.player.draw(&mut d, game.camera);
 }
